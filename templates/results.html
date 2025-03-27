@@ -9,47 +9,101 @@
                     <h2 class="mb-0">Poll Results</h2>
                 </div>
                 <div class="card-body" id="results-container">
-                    <h3 class="question-text">{{ question.text|safe }}</h3>
+                    <!-- Question Text or Image -->
+                    {% if question.is_diagram and question.question_image_filename %}
+                        <div class="text-center mb-4">
+                            <img src="{{ url_for('static', filename='uploads/' + question.question_image_filename) }}" 
+                                alt="Question Image" class="img-fluid">
+                        </div>
+                    {% endif %}
                     
-                    <div class="results-container">
-                        <p class="lead mb-4">Total votes: <span id="total-votes">{{ total_votes }}</span></p>
-                        
-                        {% for option in options %}
-                            <div class="option-result">
-                                <div class="d-flex justify-content-between mb-1">
-                                    <strong>
-                                        {{ option.text|safe }}
-                                        {% if option.is_user_vote %}
-                                            <span class="badge bg-success">Your Vote</span>
-                                        {% endif %}
-                                    </strong>
-                                    <span class="vote-count">
-                                        <span id="vote-count-{{ option.id }}">{{ option.votes }}</span> votes
-                                        (<span id="percentage-{{ option.id }}">{{ option.percentage }}%</span>)
-                                    </span>
-                                </div>
-                                <div class="progress">
-                                    <div id="progress-bar-{{ option.id }}" 
-                                         class="progress-bar {% if option.is_user_vote %}bg-success{% else %}bg-info{% endif %}" 
-                                         role="progressbar" 
-                                         style="width: {{ option.percentage }}%" 
-                                         aria-valuenow="{{ option.percentage }}" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
+                    <h3 class="question-text mb-4">{{ question.text|safe }}</h3>
+                    
+                    <!-- Different result displays based on answer type -->
+                    {% if question.answer_type == 'option' %}
+                        <!-- Multiple choice results with progress bars -->
+                        <div class="results-container">
+                            <p class="lead mb-4">Total votes: <span id="total-votes">{{ total_votes }}</span></p>
+                            
+                            {% for option in options %}
+                                <div class="option-result mb-3">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <strong>
+                                            {{ option.text|safe }}
+                                            {% if option.is_user_vote %}
+                                                <span class="badge bg-success">Your Vote</span>
+                                            {% endif %}
+                                        </strong>
+                                        <span class="vote-count">
+                                            <span id="vote-count-{{ option.id }}">{{ option.votes }}</span> votes
+                                            (<span id="percentage-{{ option.id }}">{{ option.percentage }}%</span>)
+                                        </span>
+                                    </div>
+                                    
+                                    {% if option.is_image_option and option.image_filename %}
+                                        <div class="mb-3">
+                                            <img src="{{ url_for('static', filename='uploads/' + option.image_filename) }}" 
+                                                 alt="Option Image" class="img-thumbnail" style="max-height: 100px;">
+                                        </div>
+                                    {% endif %}
+                                    
+                                    <div class="progress">
+                                        <div id="progress-bar-{{ option.id }}" 
+                                             class="progress-bar {% if option.is_user_vote %}bg-success{% else %}bg-info{% endif %}" 
+                                             role="progressbar" 
+                                             style="width: {{ option.percentage }}%" 
+                                             aria-valuenow="{{ option.percentage }}" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="100">
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        {% endfor %}
-                    </div>
+                            {% endfor %}
+                        </div>
+                    
+                    {% elif question.answer_type == 'text' %}
+                        <!-- Text answer results displayed as a list -->
+                        <div class="text-answers-container">
+                            <p class="lead mb-4">Total responses: <span id="total-responses">{{ total_votes }}</span></p>
+                            
+                            {% if has_voted and user_answer %}
+                                <div class="card mb-4 border-success">
+                                    <div class="card-header bg-success text-white">
+                                        <h5 class="mb-0">Your Answer</h5>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="card-text">{{ user_answer }}</p>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
+                            {% if text_answers %}
+                                <h4 class="mb-3">All Responses:</h4>
+                                <div class="list-group">
+                                    {% for answer in text_answers %}
+                                        <div class="list-group-item {% if answer.is_user_vote %}list-group-item-success{% endif %}">
+                                            <p class="mb-0">{{ answer.text }}</p>
+                                            {% if answer.is_user_vote and not loop.first %}
+                                                <span class="badge bg-success">Your Answer</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-info">No responses yet.</div>
+                            {% endif %}
+                        </div>
+                    {% endif %}
                 </div>
+                
                 <div class="card-footer text-center">
                     {% if has_voted %}
                         <div class="alert alert-success mb-3">
-                            <i class="fas fa-check-circle"></i> Thanks for voting! Your vote has been recorded.
+                            <i class="fas fa-check-circle"></i> Thanks for submitting your response!
                         </div>
-                        <a href="#" class="btn btn-outline-secondary disabled">Already Voted</a>
+                        <a href="#" class="btn btn-outline-secondary disabled">Already Responded</a>
                     {% else %}
-                        <a href="{{ url_for('vote') }}" class="btn btn-outline-primary">Cast Your Vote</a>
+                        <a href="{{ url_for('vote') }}" class="btn btn-outline-primary">Submit Your Response</a>
                     {% endif %}
                 </div>
             </div>

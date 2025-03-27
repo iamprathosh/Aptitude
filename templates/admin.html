@@ -3,56 +3,138 @@
 {% block content %}
 <div class="admin-header">
     <h1>Admin Dashboard</h1>
-    <p class="lead">Upload images to create polling questions and manage existing polls</p>
+    <p class="lead">Create and manage interactive polling questions</p>
 </div>
 
-<div class="row">
+<div class="row mb-4">
     <div class="col-md-12">
-        <div class="card upload-form">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Create New Poll</h3>
+        <ul class="nav nav-tabs" id="questionTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="ocr-tab" data-bs-toggle="tab" data-bs-target="#ocr" type="button" role="tab" aria-controls="ocr" aria-selected="true">OCR Image Upload</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="manual-tab" data-bs-toggle="tab" data-bs-target="#manual" type="button" role="tab" aria-controls="manual" aria-selected="false">Manual Question</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="questionTabsContent">
+            <!-- OCR Image Upload Form -->
+            <div class="tab-pane fade show active" id="ocr" role="tabpanel" aria-labelledby="ocr-tab">
+                <div class="card border-top-0 rounded-top-0">
+                    <div class="card-header">
+                        <h3 class="mb-0">Create Poll from Images (OCR)</h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" enctype="multipart/form-data">
+                            {{ image_form.hidden_tag() }}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ image_form.question_image.label(class="form-label") }}
+                                        {% if image_form.question_image.errors %}
+                                            {{ image_form.question_image(class="form-control is-invalid") }}
+                                            <div class="invalid-feedback">
+                                                {% for error in image_form.question_image.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            {{ image_form.question_image(class="form-control") }}
+                                        {% endif %}
+                                        <small class="form-text text-muted">Upload an image containing the question text</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ image_form.options_image.label(class="form-label") }}
+                                        {% if image_form.options_image.errors %}
+                                            {{ image_form.options_image(class="form-control is-invalid") }}
+                                            <div class="invalid-feedback">
+                                                {% for error in image_form.options_image.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% else %}
+                                            {{ image_form.options_image(class="form-control") }}
+                                        {% endif %}
+                                        <small class="form-text text-muted">Upload an image containing the answer options</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-check mb-3">
+                                        {{ image_form.is_diagram(class="form-check-input") }}
+                                        {{ image_form.is_diagram.label(class="form-check-label") }}
+                                        <small class="form-text text-muted d-block">Check this if the question contains diagrams or mathematical notation</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ image_form.answer_type.label(class="form-label") }}
+                                        {{ image_form.answer_type(class="form-select") }}
+                                        <small class="form-text text-muted">Choose whether users will select from options or provide text input</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-grid gap-2">
+                                {{ image_form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <form method="POST" enctype="multipart/form-data">
-                    {{ form.hidden_tag() }}
-                    <div class="row mb-3">
-                        <div class="col-md-6">
+            
+            <!-- Manual Question Entry Form -->
+            <div class="tab-pane fade" id="manual" role="tabpanel" aria-labelledby="manual-tab">
+                <div class="card border-top-0 rounded-top-0">
+                    <div class="card-header">
+                        <h3 class="mb-0">Create Manual Question</h3>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST" enctype="multipart/form-data">
+                            {{ manual_form.hidden_tag() }}
                             <div class="mb-3">
-                                {{ form.question_image.label(class="form-label") }}
-                                {% if form.question_image.errors %}
-                                    {{ form.question_image(class="form-control is-invalid") }}
+                                {{ manual_form.question_text.label(class="form-label") }}
+                                {% if manual_form.question_text.errors %}
+                                    {{ manual_form.question_text(class="form-control is-invalid", rows=4) }}
                                     <div class="invalid-feedback">
-                                        {% for error in form.question_image.errors %}
+                                        {% for error in manual_form.question_text.errors %}
                                             {{ error }}
                                         {% endfor %}
                                     </div>
                                 {% else %}
-                                    {{ form.question_image(class="form-control") }}
+                                    {{ manual_form.question_text(class="form-control", rows=4) }}
                                 {% endif %}
-                                <small class="form-text text-muted">Upload an image containing the question text</small>
+                                <small class="form-text text-muted">Enter the question text. You can use HTML for mathematical notation (e.g., "2<sup>16</sup>" for 2^16)</small>
                             </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                {{ form.options_image.label(class="form-label") }}
-                                {% if form.options_image.errors %}
-                                    {{ form.options_image(class="form-control is-invalid") }}
-                                    <div class="invalid-feedback">
-                                        {% for error in form.options_image.errors %}
-                                            {{ error }}
-                                        {% endfor %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ manual_form.question_image.label(class="form-label") }}
+                                        {{ manual_form.question_image(class="form-control") }}
+                                        <small class="form-text text-muted">Optional: Upload an image to display with the question</small>
                                     </div>
-                                {% else %}
-                                    {{ form.options_image(class="form-control") }}
-                                {% endif %}
-                                <small class="form-text text-muted">Upload an image containing the answer options</small>
+                                    <div class="form-check mb-3">
+                                        {{ manual_form.is_diagram(class="form-check-input") }}
+                                        {{ manual_form.is_diagram.label(class="form-check-label") }}
+                                        <small class="form-text text-muted d-block">Check this if you're uploading a diagram</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        {{ manual_form.answer_type.label(class="form-label") }}
+                                        {{ manual_form.answer_type(class="form-select") }}
+                                        <small class="form-text text-muted">Choose whether users will select from options or provide text input</small>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
+                            <div class="d-grid gap-2">
+                                {{ manual_form.submit(class="btn btn-primary") }}
+                            </div>
+                        </form>
                     </div>
-                    <div class="d-grid gap-2">
-                        {{ form.submit(class="btn btn-primary") }}
-                    </div>
-                </form>
+                </div>
             </div>
         </div>
     </div>
@@ -70,21 +152,47 @@
                         {% for question in questions %}
                             <div class="list-group-item list-group-item-action question-item {% if question.active %}bg-info bg-opacity-25{% endif %}">
                                 <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1">{{ question.text }}</h5>
+                                    <h5 class="mb-1">{{ question.text|safe }}</h5>
                                     <small>Created: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
                                 </div>
+                                
+                                {% if question.question_image_filename %}
+                                <div class="mb-2">
+                                    <img src="{{ url_for('static', filename='uploads/' + question.question_image_filename) }}" 
+                                         alt="Question Image" class="img-thumbnail" style="max-height: 150px;">
+                                </div>
+                                {% endif %}
+                                
+                                <div class="mb-2">
+                                    <span class="badge bg-primary">{{ "Multiple Choice" if question.answer_type == 'option' else "Text Input" }}</span>
+                                    {% if question.is_diagram %}<span class="badge bg-info">Diagram</span>{% endif %}
+                                </div>
+                                
+                                {% if question.answer_type == 'option' %}
                                 <p class="mb-1">Options:</p>
                                 <ul>
                                     {% for option in question.options %}
-                                        <li>{{ option.text }} ({{ option.vote_count }} votes)</li>
+                                        <li>{{ option.text|safe }} ({{ option.vote_count }} votes)</li>
                                     {% endfor %}
                                 </ul>
-                                <div class="question-controls">
+                                {% else %}
+                                <p class="mb-1">Text input question - users will provide free-form answers.</p>
+                                {% endif %}
+                                
+                                <div class="question-controls mt-2">
                                     {% if question.active %}
                                         <span class="badge bg-success">Active</span>
                                     {% else %}
-                                        <a href="{{ url_for('activate_question', question_id=question.id) }}" class="btn btn-sm btn-outline-success">Activate</a>
+                                        {% if question.answer_type == 'option' and question.options|length >= 2 %}
+                                            <a href="{{ url_for('activate_question', question_id=question.id) }}" class="btn btn-sm btn-outline-success">Activate</a>
+                                        {% elif question.answer_type == 'text' %}
+                                            <a href="{{ url_for('activate_question', question_id=question.id) }}" class="btn btn-sm btn-outline-success">Activate</a>
+                                        {% else %}
+                                            <span class="badge bg-warning">Needs options</span>
+                                        {% endif %}
                                     {% endif %}
+                                    
+                                    <a href="{{ url_for('manage_options', question_id=question.id) }}" class="btn btn-sm btn-outline-primary">Manage Options</a>
                                     <a href="{{ url_for('delete_question', question_id=question.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure? This will delete the question and all its votes.')">Delete</a>
                                 </div>
                             </div>

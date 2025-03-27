@@ -9,28 +9,56 @@
                     <h2 class="mb-0">Current Poll</h2>
                 </div>
                 <div class="card-body">
+                    <!-- Question Text or Image -->
+                    {% if question.is_diagram and question.question_image_filename %}
+                        <div class="text-center mb-4">
+                            <img src="{{ url_for('static', filename='uploads/' + question.question_image_filename) }}" 
+                                alt="Question Image" class="img-fluid">
+                        </div>
+                    {% endif %}
+                    
                     <h3 class="question-text">{{ question.text|safe }}</h3>
                     
                     <form method="POST" action="">
                         {{ form.hidden_tag() }}
-                        <div class="mb-3">
-                            {% for option in form.option %}
-                                <div class="option-item form-check">
-                                    {{ option(class="form-check-input") }}
-                                    <label class="form-check-label" for="{{ option.id }}">
-                                        {{ option.label.text|safe }}
-                                    </label>
-                                </div>
-                            {% endfor %}
-                            
-                            {% if form.option.errors %}
-                                <div class="alert alert-danger mt-2">
-                                    {% for error in form.option.errors %}
-                                        {{ error }}
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
+                        
+                        <!-- Multiple Choice Options -->
+                        {% if question.answer_type == 'option' %}
+                            <div class="mb-3">
+                                {% for option in form.option %}
+                                    <div class="option-item form-check">
+                                        {{ option(class="form-check-input") }}
+                                        <label class="form-check-label" for="{{ option.id }}">
+                                            {{ option.label.text|safe }}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                                
+                                {% if form.option.errors %}
+                                    <div class="alert alert-danger mt-2">
+                                        {% for error in form.option.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        
+                        <!-- Text Input Answer -->
+                        {% elif question.answer_type == 'text' %}
+                            <div class="mb-3">
+                                {{ form.text_answer.label(class="form-label") }}
+                                {{ form.text_answer(class="form-control", rows=4, placeholder="Enter your answer here...") }}
+                                
+                                {% if form.text_answer.errors %}
+                                    <div class="alert alert-danger mt-2">
+                                        {% for error in form.text_answer.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        
                         <div class="d-grid gap-2">
                             {{ form.submit(class="btn btn-primary btn-lg") }}
                         </div>
