@@ -60,14 +60,21 @@ socket.on('vote_update', (data) => {
 });
 
 // Handle question updates
+let lastQuestionId = null;
+
 socket.on('question_update', (data) => {
     console.log('Question update received:', data);
     
-    // Reload the page to show the new question
-    // This is simpler than dynamically updating the DOM for this application
-    if (window.location.pathname === '/vote' || 
-        window.location.pathname === '/' || 
-        window.location.pathname === '/results') {
-        location.reload();
+    // Only reload if this is a new question (different ID)
+    if (lastQuestionId !== null && lastQuestionId !== data.id) {
+        console.log('New question detected, reloading page');
+        if (window.location.pathname === '/vote' || 
+            window.location.pathname === '/' || 
+            window.location.pathname === '/results') {
+            location.reload();
+        }
     }
+    
+    // Update the last question ID
+    lastQuestionId = data.id;
 });

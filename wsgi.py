@@ -6,9 +6,9 @@ This module is specially configured to work with Gunicorn in Replit.
 # Import the application and socketio instance
 from app import app, socketio
 
-# This binds the Flask app with Socket.IO correctly for Gunicorn
-# This is what Gunicorn needs to import and use
-application = socketio.wsgi_app
+# For Gunicorn, we need to provide the application
+# SocketIO does not have a wsgi_app attribute, so let's create the correct wrapper
+application = socketio.middleware(app)
 
 # Make app directly accessible for simple WSGI containers
 wsgi_app = application

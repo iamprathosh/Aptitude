@@ -9,7 +9,7 @@
                     <h2 class="mb-0">Poll Results</h2>
                 </div>
                 <div class="card-body" id="results-container">
-                    <h3 class="question-text">{{ question.text }}</h3>
+                    <h3 class="question-text">{{ question.text|safe }}</h3>
                     
                     <div class="results-container">
                         <p class="lead mb-4">Total votes: <span id="total-votes">{{ total_votes }}</span></p>
@@ -18,7 +18,7 @@
                             <div class="option-result">
                                 <div class="d-flex justify-content-between mb-1">
                                     <strong>
-                                        {{ option.text }}
+                                        {{ option.text|safe }}
                                         {% if option.is_user_vote %}
                                             <span class="badge bg-success">Your Vote</span>
                                         {% endif %}

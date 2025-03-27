@@ -9,7 +9,7 @@
                     <h2 class="mb-0">Current Poll</h2>
                 </div>
                 <div class="card-body">
-                    <h3 class="question-text">{{ question.text }}</h3>
+                    <h3 class="question-text">{{ question.text|safe }}</h3>
                     
                     <form method="POST" action="">
                         {{ form.hidden_tag() }}
@@ -17,7 +17,9 @@
                             {% for option in form.option %}
                                 <div class="option-item form-check">
                                     {{ option(class="form-check-input") }}
-                                    {{ option.label(class="form-check-label") }}
+                                    <label class="form-check-label" for="{{ option.id }}">
+                                        {{ option.label.text|safe }}
+                                    </label>
                                 </div>
                             {% endfor %}
                             
