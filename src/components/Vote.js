@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const Vote = ({ question, answerOptions }) => {
+const Vote = ({ question, answerOptions, onVote }) => {
   const [selectedAnswer, setSelectedAnswer] = useState('');
   const [votes, setVotes] = useState({});
 
@@ -13,10 +13,11 @@ const Vote = ({ question, answerOptions }) => {
       ...prevVotes,
       [selectedAnswer]: (prevVotes[selectedAnswer] || 0) + 1,
     }));
+    onVote(selectedAnswer);
   };
 
   return (
-    <div>
+    <div className="vote-container">
       <h2>{question}</h2>
       <form>
         {answerOptions.map((option, index) => (

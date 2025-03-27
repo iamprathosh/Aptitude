@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-const UploadImages = () => {
+const UploadImages = ({ onUpload }) => {
   const [questionImage, setQuestionImage] = useState(null);
   const [answerImages, setAnswerImages] = useState([]);
 
@@ -13,11 +13,15 @@ const UploadImages = () => {
   };
 
   const handleUpload = () => {
-    // Implement the image upload process here
+    if (questionImage && answerImages.length > 0) {
+      onUpload(questionImage, answerImages);
+    } else {
+      alert('Please upload both question and answer images.');
+    }
   };
 
   return (
-    <div>
+    <div className="upload-container">
       <h2>Upload Question and Answer Images</h2>
       <div>
         <label>Question Image:</label>

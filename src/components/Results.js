@@ -14,7 +14,7 @@ const Results = ({ question, votes }) => {
   };
 
   return (
-    <div>
+    <div className="results-container">
       <h2>{question}</h2>
       <h3>Most Voted Answer(s):</h3>
       <ul>

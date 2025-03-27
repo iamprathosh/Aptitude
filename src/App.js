@@ -3,6 +3,7 @@ import UploadImages from './components/UploadImages';
 import ExtractText from './components/ExtractText';
 import Vote from './components/Vote';
 import Results from './components/Results';
+import './App.css';
 
 const App = () => {
   const [step, setStep] = useState(1);
@@ -41,7 +42,7 @@ const App = () => {
   };
 
   return (
-    <div>
+    <div className="app-container">
       {step === 1 && (
         <UploadImages onUpload={handleUploadImages} />
       )}
@@ -66,10 +67,10 @@ const App = () => {
         />
       )}
       {step > 1 && (
-        <button onClick={handlePreviousStep}>Previous</button>
+        <button className="nav-button" onClick={handlePreviousStep}>Previous</button>
       )}
       {step < 4 && (
-        <button onClick={handleNextStep}>Next</button>
+        <button className="nav-button" onClick={handleNextStep}>Next</button>
       )}
     </div>
   );

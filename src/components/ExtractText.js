@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 
-const ExtractText = () => {
+const ExtractText = ({ questionImage, answerImages, onExtract }) => {
   const [extractedQuestion, setExtractedQuestion] = useState('');
   const [extractedAnswers, setExtractedAnswers] = useState([]);
 
-  const handleExtractText = async (questionImage, answerImages) => {
+  const handleExtractText = async () => {
     try {
       // Call the Google Gemini API to extract text from the question image
       const questionResponse = await fetch('https://api.google.com/gemini/ocr', {
@@ -24,13 +24,16 @@ const ExtractText = () => {
       const answerResponses = await Promise.all(answerPromises);
       const answerData = await Promise.all(answerResponses.map((res) => res.json()));
       setExtractedAnswers(answerData.map((data) => data.text));
+
+      // Trigger the onExtract callback with the extracted text
+      onExtract(questionData.text, answerData.map((data) => data.text));
     } catch (error) {
       console.error('Error extracting text:', error);
     }
   };
 
   return (
-    <div>
+    <div className="extracted-text-container">
       <h2>Extracted Text</h2>
       <div>
         <h3>Question:</h3>
@@ -44,6 +47,7 @@ const ExtractText = () => {
           ))}
         </ul>
       </div>
+      <button onClick={handleExtractText}>Extract Text</button>
     </div>
   );
 };
