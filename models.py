@@ -35,5 +35,6 @@ class Option(db.Model):
 class Vote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     option_id = db.Column(db.Integer, db.ForeignKey('option.id'), nullable=False)
+    session_id = db.Column(db.String(128), nullable=False)  # Store user's session ID
+    question_id = db.Column(db.Integer, nullable=False)  # Store question ID for easier lookups
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    # You could add a user_id or session_id if you want to prevent multiple votes

@@ -1,6 +1,7 @@
 import os
 import logging
-from flask import render_template, redirect, url_for, flash, request, jsonify
+import uuid
+from flask import render_template, redirect, url_for, flash, request, jsonify, session
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash
 from werkzeug.utils import secure_filename
@@ -162,11 +163,25 @@ def delete_question(question_id):
 @app.route('/')
 @app.route('/vote', methods=['GET', 'POST'])
 def vote():
+    # Ensure user has a session ID
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
     # Get active question
     active_question = Question.query.filter_by(active=True).first()
     
     if not active_question:
         return render_template('vote.html', question=None)
+    
+    # Check if user already voted on this question
+    existing_vote = Vote.query.filter_by(
+        session_id=session['session_id'],
+        question_id=active_question.id
+    ).first()
+    
+    if existing_vote:
+        flash('You have already voted on this question!', 'warning')
+        return redirect(url_for('results'))
     
     # Create vote form with options from the active question
     form = VoteForm()
@@ -174,13 +189,21 @@ def vote():
     
     if form.validate_on_submit():
         try:
-            # Create a new vote
-            new_vote = Vote(option_id=form.option.data)
+            # Get the selected option to check if it belongs to the active question
+            selected_option = Option.query.get(form.option.data)
+            if not selected_option or selected_option.question_id != active_question.id:
+                flash('Invalid option selected!', 'danger')
+                return redirect(url_for('vote'))
+            
+            # Create a new vote with session ID
+            new_vote = Vote(
+                option_id=form.option.data,
+                session_id=session['session_id'],
+                question_id=active_question.id
+            )
             db.session.add(new_vote)
             db.session.commit()
             
-            # Get updated vote counts
-            option = Option.query.get(form.option.data)
             flash('Vote submitted successfully!', 'success')
             
             # Emit socket event with updated vote counts
@@ -197,6 +220,7 @@ def vote():
             
         except Exception as e:
             db.session.rollback()
+            logging.error(f"Error submitting vote: {str(e)}")
             flash(f'Error submitting vote: {str(e)}', 'danger')
     
     return render_template('vote.html', form=form, question=active_question)
@@ -204,15 +228,31 @@ def vote():
 # Results Route
 @app.route('/results')
 def results():
+    # Ensure user has a session ID
+    if 'session_id' not in session:
+        session['session_id'] = str(uuid.uuid4())
+    
     # Get the active question
     active_question = Question.query.filter_by(active=True).first()
     
     if not active_question:
-        return render_template('results.html', question=None)
+        return render_template('results.html', question=None, has_voted=False)
+    
+    # Check if user has voted on this question
+    user_vote = None
+    if 'session_id' in session:
+        user_vote = Vote.query.filter_by(
+            session_id=session['session_id'],
+            question_id=active_question.id
+        ).first()
     
     # Gather vote counts for each option
     options_with_votes = []
     total_votes = 0
+    user_selected_option_id = None
+    
+    if user_vote:
+        user_selected_option_id = user_vote.option_id
     
     for option in active_question.options:
         vote_count = len(option.votes)
@@ -220,7 +260,8 @@ def results():
         options_with_votes.append({
             'id': option.id,
             'text': option.text,
-            'votes': vote_count
+            'votes': vote_count,
+            'is_user_vote': option.id == user_selected_option_id
         })
     
     # Calculate percentages
@@ -233,7 +274,8 @@ def results():
     return render_template('results.html', 
                           question=active_question, 
                           options=options_with_votes,
-                          total_votes=total_votes)
+                          total_votes=total_votes,
+                          has_voted=user_vote is not None)
 
 # Socket.IO event handlers
 @socketio.on('connect')
@@ -248,7 +290,8 @@ def handle_connect():
             'text': active_question.text,
             'options': [{'id': opt.id, 'text': opt.text, 'votes': len(opt.votes)} for opt in active_question.options]
         }
-        socketio.emit('question_update', question_data, room=request.sid)
+        # Individual emit to the client that just connected
+        socketio.emit('question_update', question_data)
 
 @socketio.on('disconnect')
 def handle_disconnect():

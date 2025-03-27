@@ -27,10 +27,17 @@ app.secret_key = os.environ.get("SESSION_SECRET", "dev-secret-key")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///polls.db")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
+# Configure session cookie (secure in production)
+app.config["SESSION_TYPE"] = "filesystem"
+app.config["PERMANENT_SESSION_LIFETIME"] = 3600  # 1 hour
+app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 # Initialize extensions with the app
 db.init_app(app)
 login_manager.init_app(app)
-socketio.init_app(app, cors_allowed_origins="*")
+socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
 
 # Configure login
 login_manager.login_view = 'login'
