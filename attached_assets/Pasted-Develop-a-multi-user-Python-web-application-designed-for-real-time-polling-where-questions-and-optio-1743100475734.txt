@@ -1,0 +1,38 @@
+Develop a multi-user Python web application designed for real-time polling where questions and options originate from images provided by an administrator. The application must have distinct interfaces and functionalities for an 'Admin' role and general 'Voter' users, along with a live-updating results display.
+
+Core Components & Requirements:
+
+Backend & Technology:
+
+Must be built using Python.
+Employ a robust web framework capable of handling concurrent users, database interaction, and real-time communication (e.g., Django, Flask, or FastAPI).
+Utilize a database (e.g., PostgreSQL, MySQL, SQLite) for persistent storage of all questions, options, and vote tallies.
+Integrate the Google Gemini API specifically for its OCR capabilities to process uploaded images.
+Implement real-time updates using WebSockets (preferred, via libraries like Django Channels, Flask-SocketIO, or FastAPI's native support) or alternatively Server-Sent Events (SSE).
+Admin Role & Interface (/admin or similar protected route):
+
+Authentication: Provide a simple mechanism to ensure only the admin can access this interface (e.g., a dedicated login, a secret URL).
+Image Upload: The admin must have a form with two distinct file input fields to upload:
+An image containing the question text.
+An image containing the corresponding multiple-choice answer options.
+OCR Processing: Upon form submission, the backend receives the images, sends them to the Google Gemini API for OCR, and extracts:
+The question text (as a single string).
+The answer options (as a list of strings).
+Include error handling for failed uploads or OCR interpretation.
+Data Persistence: The successfully extracted question text and list of options must be saved to the database. The system should designate this new question as the 'currently active' one for voting (perhaps deactivating any previous questions). Initialize vote counts for each new option to zero.
+Voter Role & Interface (/vote or similar public route):
+
+Display Active Question: When a user accesses this page, it must query the database and display the text of the 'currently active' question and its options.
+Voting Mechanism: Present the options clearly, allowing the user to select only one (e.g., using HTML radio buttons within a form).
+Vote Submission: When the user submits their vote, the backend must:
+Identify the chosen option for the active question.
+Increment the vote count for that specific option in the database.
+Crucially, after successfully recording the vote, the backend must trigger an update via the real-time mechanism (WebSocket/SSE) to notify connected clients viewing the results page.
+Results Role & Interface (/results or similar public route):
+
+Initial Display: When a user accesses this page, it must display the text of the 'currently active' question and its options, along with the current vote count for each option as retrieved from the database.
+Real-time Updates: This page must establish a connection using WebSockets or SSE to the backend. It should listen for update events triggered after new votes are cast (as described in the Voter Interface section). Upon receiving an update event (containing the latest vote counts for the active question), the frontend JavaScript must dynamically update the displayed vote counts next to each option without requiring a page refresh, thus providing a simultaneous view of the results as they change.
+This prompt clearly outlines the roles, data flow, required technologies (Python web framework, Database, Gemini OCR, WebSockets/SSE), persistence needs, and the critical real-time update functionality for the results page.
+
+
+Sources and related content
