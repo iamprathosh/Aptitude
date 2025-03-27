@@ -1,0 +1,52 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-10">
+        {% if question %}
+            <div class="card question-card">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="mb-0">Poll Results</h2>
+                </div>
+                <div class="card-body" id="results-container">
+                    <h3 class="question-text">{{ question.text }}</h3>
+                    
+                    <div class="results-container">
+                        <p class="lead mb-4">Total votes: <span id="total-votes">{{ total_votes }}</span></p>
+                        
+                        {% for option in options %}
+                            <div class="option-result">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <strong>{{ option.text }}</strong>
+                                    <span class="vote-count">
+                                        <span id="vote-count-{{ option.id }}">{{ option.votes }}</span> votes
+                                        (<span id="percentage-{{ option.id }}">{{ option.percentage }}%</span>)
+                                    </span>
+                                </div>
+                                <div class="progress">
+                                    <div id="progress-bar-{{ option.id }}" 
+                                         class="progress-bar bg-info" 
+                                         role="progressbar" 
+                                         style="width: {{ option.percentage }}%" 
+                                         aria-valuenow="{{ option.percentage }}" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card-footer text-center">
+                    <a href="{{ url_for('vote') }}" class="btn btn-outline-primary">Cast Your Vote</a>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                <h3>No active poll</h3>
+                <p>There is currently no active poll. Please check back later or contact the administrator.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,99 @@
+/* Custom styles for the polling application */
+
+/* Main container styles */
+.content-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Question display */
+.question-card {
+    margin-bottom: 30px;
+    background-color: var(--bs-dark);
+    border: 1px solid var(--bs-gray-700);
+}
+
+.question-text {
+    font-size: 1.5rem;
+    font-weight: 500;
+    margin-bottom: 20px;
+}
+
+/* Option styles */
+.option-item {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.option-item:hover {
+    background-color: var(--bs-gray-800);
+}
+
+/* Admin panel styles */
+.admin-header {
+    margin-bottom: 30px;
+}
+
+.upload-form {
+    margin-bottom: 40px;
+}
+
+.question-list {
+    margin-top: 30px;
+}
+
+.question-item {
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 5px;
+    background-color: var(--bs-gray-800);
+}
+
+.question-controls {
+    margin-top: 10px;
+}
+
+/* Results page styles */
+.results-container {
+    margin-top: 20px;
+}
+
+.option-result {
+    margin-bottom: 15px;
+}
+
+.progress {
+    height: 30px;
+    background-color: var(--bs-gray-800);
+}
+
+.vote-count {
+    font-weight: bold;
+    color: var(--bs-light);
+}
+
+/* Connection status indicator */
+.connection-indicator {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8rem;
+    z-index: 1000;
+    background-color: var(--bs-gray-800);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .question-text {
+        font-size: 1.2rem;
+    }
+    
+    .option-item {
+        padding: 8px;
+    }
+}

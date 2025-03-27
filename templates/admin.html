@@ -1,0 +1,102 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Admin Dashboard</h1>
+    <p class="lead">Upload images to create polling questions and manage existing polls</p>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card upload-form">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Create New Poll</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.question_image.label(class="form-label") }}
+                                {% if form.question_image.errors %}
+                                    {{ form.question_image(class="form-control is-invalid") }}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.question_image.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.question_image(class="form-control") }}
+                                {% endif %}
+                                <small class="form-text text-muted">Upload an image containing the question text</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                {{ form.options_image.label(class="form-label") }}
+                                {% if form.options_image.errors %}
+                                    {{ form.options_image(class="form-control is-invalid") }}
+                                    <div class="invalid-feedback">
+                                        {% for error in form.options_image.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    {{ form.options_image(class="form-control") }}
+                                {% endif %}
+                                <small class="form-text text-muted">Upload an image containing the answer options</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        {{ form.submit(class="btn btn-primary") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row question-list">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h3 class="mb-0">Manage Questions</h3>
+            </div>
+            <div class="card-body">
+                {% if questions %}
+                    <div class="list-group">
+                        {% for question in questions %}
+                            <div class="list-group-item list-group-item-action question-item {% if question.active %}bg-info bg-opacity-25{% endif %}">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h5 class="mb-1">{{ question.text }}</h5>
+                                    <small>Created: {{ question.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                </div>
+                                <p class="mb-1">Options:</p>
+                                <ul>
+                                    {% for option in question.options %}
+                                        <li>{{ option.text }} ({{ option.vote_count }} votes)</li>
+                                    {% endfor %}
+                                </ul>
+                                <div class="question-controls">
+                                    {% if question.active %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% else %}
+                                        <a href="{{ url_for('activate_question', question_id=question.id) }}" class="btn btn-sm btn-outline-success">Activate</a>
+                                    {% endif %}
+                                    <a href="{{ url_for('delete_question', question_id=question.id) }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Are you sure? This will delete the question and all its votes.')">Delete</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        No questions have been created yet. Use the form above to create your first poll.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

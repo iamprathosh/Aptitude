@@ -1,0 +1,264 @@
+import os
+import logging
+from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask_login import login_user, logout_user, login_required, current_user
+from werkzeug.security import check_password_hash
+from werkzeug.utils import secure_filename
+
+from app import app, db, socketio
+from models import Admin, Question, Option, Vote
+from forms import LoginForm, ImageUploadForm, VoteForm
+from utils import extract_text_from_image, parse_options
+
+# Login and Authentication Routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('admin'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        admin = Admin.query.filter_by(username=form.username.data).first()
+        if admin and check_password_hash(admin.password_hash, form.password.data):
+            login_user(admin)
+            next_page = request.args.get('next')
+            return redirect(next_page if next_page else url_for('admin'))
+        else:
+            flash('Login unsuccessful. Please check username and password', 'danger')
+    
+    return render_template('login.html', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('login'))
+
+# Admin Routes
+@app.route('/admin', methods=['GET', 'POST'])
+@login_required
+def admin():
+    form = ImageUploadForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Process question image
+            question_text = extract_text_from_image(form.question_image.data, 'question')
+            if question_text.startswith('Error:'):
+                flash(f'Failed to process question image: {question_text}', 'danger')
+                return redirect(url_for('admin'))
+            
+            # Process options image
+            options_text = extract_text_from_image(form.options_image.data, 'options')
+            if options_text.startswith('Error:'):
+                flash(f'Failed to process options image: {options_text}', 'danger')
+                return redirect(url_for('admin'))
+            
+            # Parse the options into a list
+            option_list = parse_options(options_text)
+            
+            if len(option_list) < 2:
+                flash('At least two options are required. Please check the options image.', 'warning')
+                return redirect(url_for('admin'))
+            
+            # Deactivate all current active questions
+            active_questions = Question.query.filter_by(active=True).all()
+            for question in active_questions:
+                question.active = False
+            
+            # Create new question
+            new_question = Question(text=question_text, active=True)
+            db.session.add(new_question)
+            db.session.flush()  # Assign ID without committing
+            
+            # Create options for the question
+            for option_text in option_list:
+                new_option = Option(text=option_text, question_id=new_question.id)
+                db.session.add(new_option)
+            
+            # Commit changes
+            db.session.commit()
+            
+            flash('Question and options created successfully!', 'success')
+            
+            # Emit socket event to update all clients
+            question_data = {
+                'id': new_question.id,
+                'text': new_question.text,
+                'options': [{'id': opt.id, 'text': opt.text, 'votes': 0} for opt in new_question.options]
+            }
+            socketio.emit('question_update', question_data)
+            
+            return redirect(url_for('admin'))
+        
+        except Exception as e:
+            db.session.rollback()
+            logging.error(f"Error creating question: {str(e)}")
+            flash(f'An error occurred: {str(e)}', 'danger')
+            return redirect(url_for('admin'))
+    
+    # Get all questions for display, most recent first
+    questions = Question.query.order_by(Question.created_at.desc()).all()
+    
+    return render_template('admin.html', form=form, questions=questions)
+
+@app.route('/admin/activate/<int:question_id>')
+@login_required
+def activate_question(question_id):
+    try:
+        # Deactivate all questions first
+        Question.query.update({Question.active: False})
+        
+        # Activate the selected question
+        question = Question.query.get_or_404(question_id)
+        question.active = True
+        db.session.commit()
+        
+        flash(f'Question "{question.text}" activated successfully!', 'success')
+        
+        # Emit socket event to update all clients
+        question_data = {
+            'id': question.id,
+            'text': question.text,
+            'options': [{'id': opt.id, 'text': opt.text, 'votes': opt.vote_count} for opt in question.options]
+        }
+        socketio.emit('question_update', question_data)
+        
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error activating question: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin'))
+
+@app.route('/admin/delete/<int:question_id>')
+@login_required
+def delete_question(question_id):
+    try:
+        question = Question.query.get_or_404(question_id)
+        db.session.delete(question)
+        db.session.commit()
+        flash('Question deleted successfully!', 'success')
+        
+        # If there's still an active question, emit update
+        active_question = Question.query.filter_by(active=True).first()
+        if active_question:
+            question_data = {
+                'id': active_question.id,
+                'text': active_question.text,
+                'options': [{'id': opt.id, 'text': opt.text, 'votes': opt.vote_count} for opt in active_question.options]
+            }
+            socketio.emit('question_update', question_data)
+        else:
+            # If no active question, emit empty data
+            socketio.emit('question_update', {'id': None})
+    
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting question: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin'))
+
+# Voter Routes
+@app.route('/')
+@app.route('/vote', methods=['GET', 'POST'])
+def vote():
+    # Get active question
+    active_question = Question.query.filter_by(active=True).first()
+    
+    if not active_question:
+        return render_template('vote.html', question=None)
+    
+    # Create vote form with options from the active question
+    form = VoteForm()
+    form.option.choices = [(option.id, option.text) for option in active_question.options]
+    
+    if form.validate_on_submit():
+        try:
+            # Create a new vote
+            new_vote = Vote(option_id=form.option.data)
+            db.session.add(new_vote)
+            db.session.commit()
+            
+            # Get updated vote counts
+            option = Option.query.get(form.option.data)
+            flash('Vote submitted successfully!', 'success')
+            
+            # Emit socket event with updated vote counts
+            option_votes = {}
+            for opt in active_question.options:
+                option_votes[opt.id] = len(opt.votes)
+            
+            socketio.emit('vote_update', {
+                'question_id': active_question.id,
+                'option_votes': option_votes
+            })
+            
+            return redirect(url_for('results'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error submitting vote: {str(e)}', 'danger')
+    
+    return render_template('vote.html', form=form, question=active_question)
+
+# Results Route
+@app.route('/results')
+def results():
+    # Get the active question
+    active_question = Question.query.filter_by(active=True).first()
+    
+    if not active_question:
+        return render_template('results.html', question=None)
+    
+    # Gather vote counts for each option
+    options_with_votes = []
+    total_votes = 0
+    
+    for option in active_question.options:
+        vote_count = len(option.votes)
+        total_votes += vote_count
+        options_with_votes.append({
+            'id': option.id,
+            'text': option.text,
+            'votes': vote_count
+        })
+    
+    # Calculate percentages
+    for option in options_with_votes:
+        if total_votes > 0:
+            option['percentage'] = round((option['votes'] / total_votes) * 100)
+        else:
+            option['percentage'] = 0
+    
+    return render_template('results.html', 
+                          question=active_question, 
+                          options=options_with_votes,
+                          total_votes=total_votes)
+
+# Socket.IO event handlers
+@socketio.on('connect')
+def handle_connect():
+    logging.debug('Client connected')
+    
+    # Send current question data to the newly connected client
+    active_question = Question.query.filter_by(active=True).first()
+    if active_question:
+        question_data = {
+            'id': active_question.id,
+            'text': active_question.text,
+            'options': [{'id': opt.id, 'text': opt.text, 'votes': len(opt.votes)} for opt in active_question.options]
+        }
+        socketio.emit('question_update', question_data, room=request.sid)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    logging.debug('Client disconnected')
+
+# Error handling routes
+@app.errorhandler(404)
+def page_not_found(e):
+    return render_template('error.html', error="404 - Page Not Found"), 404
+
+@app.errorhandler(500)
+def internal_server_error(e):
+    return render_template('error.html', error="500 - Internal Server Error"), 500
