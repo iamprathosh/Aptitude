@@ -1,7 +1,9 @@
 import os
+import logging
 import base64
 import google.generativeai as genai
-import logging
+import io
+from PIL import Image
 
 def setup_gemini():
     """Configure the Gemini API client with the API key from environment variables."""
@@ -12,12 +14,6 @@ def setup_gemini():
     
     genai.configure(api_key=api_key)
     return True
-
-def encode_image_to_base64(image_file):
-    """Encode an image file to base64 for the Gemini API."""
-    image_bytes = image_file.read()
-    encoded_image = base64.b64encode(image_bytes).decode('utf-8')
-    return encoded_image
 
 def extract_text_from_image(image_file, prompt_type):
     """
@@ -35,14 +31,25 @@ def extract_text_from_image(image_file, prompt_type):
         if not setup_gemini():
             return "Error: Gemini API key not configured"
         
-        # Encode the image to base64
-        encoded_image = encode_image_to_base64(image_file)
+        # Reset file pointer to beginning of file
+        image_file.seek(0)
+        
+        # Open the image and convert to bytes
+        with Image.open(image_file) as img:
+            # Convert image to RGB if it's not already
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+            
+            # Save image to bytes buffer
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG")
+            image_bytes = buffer.getvalue()
         
         # Reset file pointer for potential reuse
         image_file.seek(0)
         
         # Configure the model
-        model = genai.GenerativeModel('gemini-pro-vision')
+        model = genai.GenerativeModel('gemini-1.5-flash')
         
         # Define the prompt based on the type
         if prompt_type == 'question':
@@ -52,16 +59,24 @@ def extract_text_from_image(image_file, prompt_type):
         else:
             return "Error: Invalid prompt type"
         
-        # Make the API request
-        response = model.generate_content([
-            prompt,
+        # Create the content parts for Gemini 1.5
+        image_parts = [
             {
-                "inlineData": {
-                    "mimeType": "image/jpeg",
-                    "data": encoded_image
-                }
+                "role": "user",
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": base64.b64encode(image_bytes).decode("utf-8")
+                        }
+                    }
+                ]
             }
-        ])
+        ]
+        
+        # Generate content
+        response = model.generate_content(image_parts)
         
         # Return the extracted text
         return response.text.strip()
