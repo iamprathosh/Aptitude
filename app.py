@@ -37,7 +37,7 @@ app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # Initialize extensions with the app
 db.init_app(app)
 login_manager.init_app(app)
-socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio.init_app(app, cors_allowed_origins="*", async_mode=None, logger=True, engineio_logger=True)
 
 # Configure login
 login_manager.login_view = 'login'
