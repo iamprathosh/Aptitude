@@ -1,0 +1,15 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-SocketIO
+SQLAlchemy
+Werkzeug
+Flask-WTF
+WTForms
+google-generativeai
+Pillow
+eventlet
+requests
+gunicorn
+python-socketio
+python-engineio
