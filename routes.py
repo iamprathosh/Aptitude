@@ -299,84 +299,86 @@ def vote():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     
-    # Get active question
-    active_question = Question.query.filter_by(active=True).first()
+    # Get active questions
+    active_questions = Question.query.filter_by(active=True).all()
     
-    if not active_question:
-        return render_template('vote.html', question=None)
+    if not active_questions:
+        return render_template('vote.html', questions=None)
     
-    # Check if user already voted on this question
-    existing_vote = Vote.query.filter_by(
-        session_id=session['session_id'],
-        question_id=active_question.id
-    ).first()
+    # Check if user already voted on these questions
+    existing_votes = Vote.query.filter(
+        Vote.session_id == session['session_id'],
+        Vote.question_id.in_([q.id for q in active_questions])
+    ).all()
+    existing_vote_question_ids = {vote.question_id for vote in existing_votes}
     
-    if existing_vote:
-        flash('You have already voted on this question!', 'warning')
-        return redirect(url_for('results'))
+    # Create vote forms for each active question
+    forms = []
+    for question in active_questions:
+        form = VoteForm()
+        if question.answer_type == 'option':
+            form.option.choices = [(option.id, option.text) for option in question.options]
+        forms.append((question, form))
     
-    # Create vote form with options from the active question if it's multiple choice
-    form = VoteForm()
-    if active_question.answer_type == 'option':
-        form.option.choices = [(option.id, option.text) for option in active_question.options]
+    if request.method == 'POST':
+        for question, form in forms:
+            if form.validate_on_submit():
+                try:
+                    # Handle different answer types
+                    if question.answer_type == 'option':
+                        # Get the selected option to check if it belongs to the active question
+                        selected_option = Option.query.get(form.option.data)
+                        if not selected_option or selected_option.question_id != question.id:
+                            flash('Invalid option selected!', 'danger')
+                            return redirect(url_for('vote'))
+                        
+                        # Create a new vote with session ID for multiple choice
+                        new_vote = Vote(
+                            option_id=form.option.data,
+                            session_id=session['session_id'],
+                            question_id=question.id
+                        )
+                        
+                        # Emit socket event with updated vote counts for multiple choice
+                        db.session.add(new_vote)
+                        db.session.commit()
+                        
+                        option_votes = {}
+                        for opt in question.options:
+                            option_votes[opt.id] = len(opt.votes)
+                        
+                        socketio.emit('vote_update', {
+                            'question_id': question.id,
+                            'option_votes': option_votes
+                        })
+                        
+                    elif question.answer_type == 'text':
+                        # Validate that text input is provided
+                        if not form.text_answer.data:
+                            flash('Please provide an answer', 'warning')
+                            return redirect(url_for('vote'))
+                        
+                        # Create a new vote with session ID for text answer
+                        new_vote = Vote(
+                            option_id=None,  # No option for text answers
+                            text_answer=form.text_answer.data,
+                            session_id=session['session_id'],
+                            question_id=question.id
+                        )
+                        db.session.add(new_vote)
+                        db.session.commit()
+                        
+                        # No need to emit option votes for text answers
+                    
+                    flash('Response submitted successfully!', 'success')
+                    return redirect(url_for('results'))
+                    
+                except Exception as e:
+                    db.session.rollback()
+                    logging.error(f"Error submitting response: {str(e)}")
+                    flash(f'Error submitting response: {str(e)}', 'danger')
     
-    if form.validate_on_submit():
-        try:
-            # Handle different answer types
-            if active_question.answer_type == 'option':
-                # Get the selected option to check if it belongs to the active question
-                selected_option = Option.query.get(form.option.data)
-                if not selected_option or selected_option.question_id != active_question.id:
-                    flash('Invalid option selected!', 'danger')
-                    return redirect(url_for('vote'))
-                
-                # Create a new vote with session ID for multiple choice
-                new_vote = Vote(
-                    option_id=form.option.data,
-                    session_id=session['session_id'],
-                    question_id=active_question.id
-                )
-                
-                # Emit socket event with updated vote counts for multiple choice
-                db.session.add(new_vote)
-                db.session.commit()
-                
-                option_votes = {}
-                for opt in active_question.options:
-                    option_votes[opt.id] = len(opt.votes)
-                
-                socketio.emit('vote_update', {
-                    'question_id': active_question.id,
-                    'option_votes': option_votes
-                })
-                
-            elif active_question.answer_type == 'text':
-                # Validate that text input is provided
-                if not form.text_answer.data:
-                    flash('Please provide an answer', 'warning')
-                    return redirect(url_for('vote'))
-                
-                # Create a new vote with session ID for text answer
-                new_vote = Vote(
-                    option_id=None,  # No option for text answers
-                    text_answer=form.text_answer.data,
-                    session_id=session['session_id'],
-                    question_id=active_question.id
-                )
-                db.session.add(new_vote)
-                db.session.commit()
-                
-                # No need to emit option votes for text answers
-            
-            flash('Response submitted successfully!', 'success')
-            return redirect(url_for('results'))
-            
-        except Exception as e:
-            db.session.rollback()
-            logging.error(f"Error submitting response: {str(e)}")
-            flash(f'Error submitting response: {str(e)}', 'danger')
-    
-    return render_template('vote.html', form=form, question=active_question)
+    return render_template('vote.html', forms=forms, questions=active_questions, existing_vote_question_ids=existing_vote_question_ids)
 
 # Results Route
 @app.route('/results')
@@ -385,88 +387,94 @@ def results():
     if 'session_id' not in session:
         session['session_id'] = str(uuid.uuid4())
     
-    # Get the active question
-    active_question = Question.query.filter_by(active=True).first()
+    # Get the active questions
+    active_questions = Question.query.filter_by(active=True).all()
     
-    if not active_question:
-        return render_template('results.html', question=None, has_voted=False)
+    if not active_questions:
+        return render_template('results.html', questions=None, has_voted=False)
     
-    # Check if user has voted on this question
-    user_vote = None
-    if 'session_id' in session:
-        user_vote = Vote.query.filter_by(
-            session_id=session['session_id'],
-            question_id=active_question.id
-        ).first()
-    
-    # Handle results differently based on answer type
-    if active_question.answer_type == 'option':
-        # Gather vote counts for each option
-        options_with_votes = []
-        total_votes = 0
-        user_selected_option_id = None
+    results_data = []
+    for question in active_questions:
+        # Check if user has voted on this question
+        user_vote = None
+        if 'session_id' in session:
+            user_vote = Vote.query.filter_by(
+                session_id=session['session_id'],
+                question_id=question.id
+            ).first()
         
-        if user_vote:
-            user_selected_option_id = user_vote.option_id
-        
-        for option in active_question.options:
-            vote_count = len(option.votes)
-            total_votes += vote_count
-            options_with_votes.append({
-                'id': option.id,
-                'text': option.text,
-                'votes': vote_count,
-                'is_user_vote': option.id == user_selected_option_id,
-                'is_image_option': option.is_image_option,
-                'image_filename': option.image_filename
+        # Handle results differently based on answer type
+        if question.answer_type == 'option':
+            # Gather vote counts for each option
+            options_with_votes = []
+            total_votes = 0
+            user_selected_option_id = None
+            
+            if user_vote:
+                user_selected_option_id = user_vote.option_id
+            
+            for option in question.options:
+                vote_count = len(option.votes)
+                total_votes += vote_count
+                options_with_votes.append({
+                    'id': option.id,
+                    'text': option.text,
+                    'votes': vote_count,
+                    'is_user_vote': option.id == user_selected_option_id,
+                    'is_image_option': option.is_image_option,
+                    'image_filename': option.image_filename
+                })
+            
+            # Calculate percentages
+            for option in options_with_votes:
+                if total_votes > 0:
+                    option['percentage'] = round((option['votes'] / total_votes) * 100)
+                else:
+                    option['percentage'] = 0
+            
+            # Get the user's selected answer for display
+            user_answer = None
+            if user_vote and user_vote.option_id:
+                selected_option = Option.query.get(user_vote.option_id)
+                if (selected_option):
+                    user_answer = selected_option.text
+            
+            results_data.append({
+                'question': question,
+                'options': options_with_votes,
+                'total_votes': total_votes,
+                'has_voted': user_vote is not None,
+                'user_answer': user_answer,
+                'text_answers': None
             })
         
-        # Calculate percentages
-        for option in options_with_votes:
-            if total_votes > 0:
-                option['percentage'] = round((option['votes'] / total_votes) * 100)
-            else:
-                option['percentage'] = 0
-        
-        # Get the user's selected answer for display
-        user_answer = None
-        if user_vote and user_vote.option_id:
-            selected_option = Option.query.get(user_vote.option_id)
-            if selected_option:
-                user_answer = selected_option.text
-        
-        return render_template('results.html', 
-                            question=active_question, 
-                            options=options_with_votes,
-                            total_votes=total_votes,
-                            has_voted=user_vote is not None,
-                            user_answer=user_answer,
-                            text_answers=None)
-    
-    elif active_question.answer_type == 'text':
-        # For text-based answers, collect all answers
-        text_votes = Vote.query.filter_by(question_id=active_question.id).order_by(Vote.created_at.desc()).all()
-        text_answers = []
-        
-        for vote in text_votes:
-            if vote.text_answer:  # Only include votes with text answers
-                text_answers.append({
-                    'text': vote.text_answer,
-                    'is_user_vote': vote.session_id == session.get('session_id')
-                })
-        
-        # Get the user's entered text answer
-        user_answer = None
-        if user_vote:
-            user_answer = user_vote.text_answer
+        elif question.answer_type == 'text':
+            # For text-based answers, collect all answers
+            text_votes = Vote.query.filter_by(question_id=question.id).order_by(Vote.created_at.desc()).all()
+            text_answers = []
             
-        return render_template('results.html', 
-                            question=active_question, 
-                            options=None,
-                            total_votes=len(text_answers),
-                            has_voted=user_vote is not None,
-                            user_answer=user_answer,
-                            text_answers=text_answers)
+            for vote in text_votes:
+                if vote.text_answer:  # Only include votes with text answers
+                    text_answers.append({
+                        'text': vote.text_answer,
+                        'is_user_vote': vote.session_id == session.get('session_id')
+                    })
+            
+            # Get the user's entered text answer
+            user_answer = None
+            if user_vote:
+                user_answer = user_vote.text_answer
+            
+            results_data.append({
+                'question': question,
+                'options': None,
+                'total_votes': len(text_answers),
+                'has_voted': user_vote is not None,
+                'user_answer': user_answer,
+                'text_answers': text_answers
+            })
+    
+    return render_template('results.html', results_data=results_data)
 
 # Socket.IO event handlers
 @socketio.on('connect')
@@ -498,6 +506,19 @@ def handle_connect():
 @socketio.on('disconnect')
 def handle_disconnect():
     logging.debug('Client disconnected')
+
+# Background task to check for new questions every 10 seconds
+def check_for_new_questions():
+    last_question_id = None
+    while True:
+        active_question = Question.query.filter_by(active=True).first()
+        if active_question and active_question.id != last_question_id:
+            last_question_id = active_question.id
+            socketio.emit('new_question', {'id': active_question.id, 'text': active_question.text})
+        socketio.sleep(10)
+
+# Start the background task
+socketio.start_background_task(check_for_new_questions)
 
 # Error handling routes
 @app.errorhandler(404)
